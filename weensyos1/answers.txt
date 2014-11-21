@@ -1,0 +1,237 @@
+Name: Yanbin Ren
+UCLA ID: 004435008
+
+Collaborators:
+
+-------------------------------------------------------------------------------
+
+Response to Exercise 1:
+
+The answer is yes. Because the system holds a process descriptor table which stores pid, registers, proc_state and exit_status of each existing process. When schedule() is called, the system reads next runnable process context in proc_array[], and current value in eax is restored. So when the system polls over all the process and eventually picks up get_pid, we still have the correct value returned. 
+
+
+
+Response to Exercise 2:
+
+static pid_t do_fork(process_t *parent)
+{
+    int i;  
+    // find an empty process descriptor from 1-15
+    for (i=1; i<16; i++) {
+        if (proc_array[i].p_state==P_EMPTY) {
+            break;
+        }
+        if(i == 15) return -1;
+    }  
+    process_t *childproc = &proc_array[i];
+    childproc->p_state=P_RUNNABLE;  		//initiate state to runnable
+    childproc->p_registers=parent->p_registers;	//copy register from parent
+    copy_stack(childproc, parent);		//copy stack from parent
+    childproc->p_registers.reg_eax = 0;		//set wax => 0, because there’s no child process for the child
+    childproc->wait_queue=0;			//for exercise 3, record the pid of parent process
+    return i;					//return pid
+}
+
+static void
+copy_stack(process_t *dest, process_t *src)
+{
+	uint32_t src_stack_bottom, src_stack_top;
+	uint32_t dest_stack_bottom, dest_stack_top;
+	src_stack_top = PROC1_STACK_ADDR+(src->p_pid)*PROC_STACK_SIZE;	//calc the src stack_top
+	src_stack_bottom = src->p_registers.reg_esp;			//src stack_bottom = %esp
+	dest_stack_top = PROC1_STACK_ADDR+(dest->p_pid)*PROC_STACK_SIZE;//calc the dest stack_top
+	dest_stack_bottom = dest_stack_top+src_stack_bottom-src_stack_top; //calc the dest stack_bottom: 
+                        //src_stack_bottom - src_stack_top = dest_stack_bottom - dest_stack_top
+    memcpy((void*)dest_stack_bottom, (void*)src_stack_bottom, src_stack_top-src_stack_bottom);//memcpy the stack
+    dest->p_registers.reg_esp=dest_stack_bottom;		//set dest->p_registers.reg_esp
+}
+
+
+Response to Exercise 3:
+Changing from polling to blocking:
+0. Add a variable in struct process: pid_t wait_queue, to record parent process.
+1. Modify INT_SYS_WAIT:
+	  //current->p_registers.reg_eax = WAIT_TRYAGAIN;
+          current->p_state = P_BLOCKED;   		//while waiting, block current process;
+          proc_array[p].wait_queue=current->p_pid;	//set current process to child process wait_queue;
+2. Modify INT_SYS_EXIT:
+	//while current process(child) is exiting:
+	if(current->wait_queue!=0){  //if there is a process waiting current process to exit:
+                proc_array[current->wait_queue].p_state=P_RUNNABLE;  //change the waiting process state from BLOCKED to RUNNABLE; 
+                proc_array[current->wait_queue].p_registers.reg_eax =current->p_exit_status;  //Pass the exit_status to parent reg_eax;
+        }
+
+
+Response to Exercise 4:
+Notice that if a process exits, the state in process descriptor is changed to ZOMBIE, which means this area in process descriptor will never be used!
+So we need to add something in INT_SYS_WAIT:
+    proc_array[p].p_state = P_EMPTY;//when parent process notices that child process has already been terminated, it will change the descriptor from ZOMBIE to EMPTY.
+
+
+
+Anything else you'd like us to know:
+1. How can we extend the system to add more apps?
+2. Notice that the interrupt num has been fixed to a range of 48~57!!
+ If I use an interrupt num other than 48~57, the system does not work!
+3. To test exercise 7, modify the test flag from 0 -> 1: (in mpos-app2.c, line 13)
+        static int exer7=0;  =>  static int exer7=1;
+
+
+
+Extra credit exercises:
+
+Response to Exercise 5:
+
+Here I wrote a code to test the (pseudo) process isolation in MiniprocOS:
+void
+start(void) {
+    int x = 0;  /* note that local variable x lives on the stack */
+    int * volatile y = &x; //a volatile pointer points to an int
+    volatile int *z = &x;  //a pointer points to a volatile int
+    pid_t p = sys_fork();
+    if (p == 0){
+        (*y)++;
+        (*z)++;
+        app_printf("-In child process:\n");
+    }
+    else if (p > 0){
+        sys_wait(p); // assume blocking implementation
+        app_printf("-In parent process:\n");}
+    app_printf("x=%d\n", x);
+    sys_exit(0);
+}
+The results:
+-In child process:
+x=1
+-In parent process:
+x=1
+
+If there is perfect isolation between the two process, we should get the results like:
+-In child process:
+x=1
+-In parent process:
+x=0
+
+So what happened?
+(When we fork() a child process, we copy the whole stack of parent process to child process.)
+If we use a pointer pointing to a volatile int, we tell the compiler not to optimize the code. It should read the value directly from memory(stack) rather than register.
+But if we use a volatile pointer pointing to an int, it will cause “pointer chaos” - the volatile pointer in child process actually pointed to some where (variable x) in parent stack and modified the variable stored in parent stack.
+MiniprocOS processes actually share a single address space. So it is not robust in some way and may cause such kind of problems while using pointers.
+
+Response to Exercise 6:
+//Implement user mode interrupt entrance: (in mpos-app.c)
+static inline pid_t
+sys_newthread(void (*start_function)(void))
+{
+    pid_t thread_id;
+	asm volatile("int %1\n"
+                 : "=a" (thread_id)
+                 : "i" (INT_SYS_NEWTHREAD),
+                    "a" (start_function)
+                 : "cc", "memory");
+	return thread_id;
+}
+//Implement kernel mode Interrupt handler: (in mpos-kern.c)
+    case INT_SYS_NEWTHREAD:
+        current->p_registers.reg_eax = do_newthread(current, current->p_registers.reg_eax);
+        run(current);
+        
+//Implement thread initialization function:static pid_t do_newthread(process_t *parent, int start_func_addr);
+
+static pid_t
+do_newthread(process_t *parent, int start_func_addr)
+{
+    int i;
+    for (i=1; i<16; i++) {
+        if (proc_array[i].p_state==P_EMPTY) {
+            break;
+        }
+        if(i == 15) return -1;
+    }
+    process_t *newthread = &proc_array[i];
+    newthread->p_state=P_RUNNABLE;
+    newthread->p_registers=parent->p_registers;
+    //copy_stack(childproc, parent);
+    newthread->p_registers.reg_eip = start_func_addr;
+    newthread->p_registers.reg_eax = 0;
+    newthread->wait_queue=0;
+    newthread->p_registers.reg_esp = PROC1_STACK_ADDR+(i-1)*PROC_STACK_SIZE;
+	return i;
+}
+
+
+Response to Exercise 7:
+//Implement user mode interrupt entrance: (in mpos-app.c)
+/*****************************************************************************
+ * sys_kill(pid)
+ *
+ *   Kill a process with process id=pid
+ *   If succeed, return 0; otherwise return -1
+ *
+ *****************************************************************************/
+static inline int
+sys_kill(pid_t pid)
+{
+	int retval;
+	asm volatile("int %1\n"
+                 : "=a" (retval)
+                 : "i" (INT_SYS_KILL),
+                 "a" (pid)
+                 : "cc", "memory");
+	return retval;
+}
+//Implement kernel mode Interrupt handler: (in mpos-kern.c)
+case INT_SYS_KILL:{
+            // 'sys_kill' is called to kill a process.
+            // It's an error to call sys_kill for:
+            // * A process ID that's out of range (<= 0 or >= NPROCS).
+            // * The current process.
+            // * A process that doesn't exist (p_state == P_EMPTY).
+            // In MiniprocOS, we allow ANY process to call sys_kill(P).
+        pid_t p = current->p_registers.reg_eax;
+        process_t *kill = &proc_array[p];
+        if (p <= 0 || p >= NPROCS || p == current->p_pid
+		    || proc_array[p].p_state == P_EMPTY)
+			current->p_registers.reg_eax = -1;
+		else if (proc_array[p].p_state == P_ZOMBIE){
+			current->p_registers.reg_eax = 0;
+            kill->p_exit_status=0;
+            if(kill->wait_queue!=0){
+                proc_array[kill->wait_queue].p_state=P_RUNNABLE;
+                proc_array[kill->wait_queue].p_registers.reg_eax=0;
+                kill->p_state = P_EMPTY;
+            }
+        }
+		else{
+            kill->p_state=P_EMPTY;
+            kill->p_exit_status=-1;
+            current->p_registers.reg_eax=0;
+            if(kill->wait_queue!=0){
+                proc_array[kill->wait_queue].p_state=P_RUNNABLE;
+                proc_array[kill->wait_queue].p_registers.reg_eax=0;
+                kill->p_state = P_EMPTY;
+            }
+        }
+            //current->p_registers.reg_eax = current->p_pid;
+        run(current);
+}
+//Use sys_kill() to alter mpos-app2.c's run_child() function so that the even-numbered processes kill off all odd-numbered processes:
+void
+run_child(void)
+{
+	int input_counter = counter;
+
+	counter++;		/* Note that all "processes" share an address
+				   space, so this change to 'counter' will be
+				   visible to all processes. */
+    if (sys_getpid() % 2 == 0)
+	{
+		int pid;
+		for (pid = 3; pid < NPROCS; pid += 2)
+			sys_kill(pid);
+	}
+	app_printf("Process %d lives, counter %d!\n",
+		   sys_getpid(), input_counter);
+    //app_printf("%d",sys_getpid());
+	sys_exit(input_counter);
+}
