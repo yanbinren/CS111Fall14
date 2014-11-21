@@ -4,7 +4,7 @@ Lab 1a:
 
 Our code is to some extent robust (at least it can pass the two test scripts: ‘ok’ and ‘bad’), but it is not guaranteed to cover all corner cases.
 
-New Features:
+New Feature:
 It records the line number of wrong commands, starting from Line #1.
 e.g: Line 6: Incomplete ‘while’ statement, missing 'done’.
 
@@ -24,32 +24,12 @@ Lab 1a - Design Problem:
 
 Lab 1b:
 
-Our code is able to execute all seven types of command correctly. It works as well as /bin/sh. Besides, our professional shell (profsh) can handle with commands like "exec echo hello", which would be terminated after run in bash. We add a test case: test-1b-ok.sh which is used for testing the correctness of our code.
-
-New Features:
-The if, until, while, subshell commands are now able to handle input and output.
-e.g. (cat) < a.txt //the content of a.txt will be printed on standard output, with conditionally ignoring subshell here.
+TO BE CONTINUED..
 
 
-Lab 1c:
 
-In this part, we implemented a logging mechanism which can generate a one-line log of each command and write the log into an output file by using: $./profsh -p outfile test.sh. In this one-line log, it records the finish time(in real time), command’s real execution time, command’s user CPU time, command’s system CPU time, executed command and current pid of the process.
 
-Q&A:
-1. Must the first column of the log output be in nondecreasing order? If not, give a counter example.
-A: No. We implement this profiling shell without parallelism, which means the program will read, execute and log the command one by one. But we use the parameter ‘CLOCK_REALTIME’ to trap down the system time, which can be affected by discontinuous jumps in the system time (e.g., if the system administrator manually changes the clock).
-
-2. Can the second column be less than the sum of the third and fourth columns, other than due to rounding errors? If so, explain why.
-A: Yes. When the kernel does some process scheduling stuff, it consumes amount of time during context switch. And this part of time is counted in command’s system CPU time but not in command’s real execution time.
-
-3. Can the second, third, or fourth column ever be negative? Briefly explain.
-A: I think the answer is no. Because we trap down the execution time with parameter CLOCK_MONOTONIC, which would never be affected even after reboot. So the command’s real execution time is always positive and so are command’s user CPU time and command’s system CPU time.
-
-4. How did you test your shell to make sure that log lines are not interleaved? If you used test scripts, submit a copy of the scripts as part of your submission tarball.
-A: Because there is no parallelism, there is no interleaving.
-
---------------
 Team Info:
 Name		Student ID	Email
-Yijia Liu	804414479	liuyijia@cs.ucla.edu
+Yijia Liu	804414479	yijialiu@cs.ucla.edu
 Yanbin Ren	004435008	yanbinren@cs.ucla.edu

@@ -58,21 +58,26 @@ command_t create_simple_command(char * start, size_t *index); //create SIMPLE CO
 command_t create_subshell_command(char *start, size_t *index); //create SUBSHELL COMMAND
 command_t create_until_command(char *start, size_t *index); //create UNTIL COMMAND
 command_t create_while_command(char *start, size_t *index); //create WHILE COMMAND
+command_t create_and_command(char *start, size_t *index, size_t size); //create AND COMMAND
+command_t create_or_command(char *start, size_t *index, size_t size); //create OR COMMAND
+command_t create_case_command(char *start, size_t *index); //create CASE COMMAND
+command_t create_for_command(char *start, size_t *index); //create FOR COMMAND
+command_t create_not_command(char *start, size_t *index, size_t size); //create NOT COMMAND
 
 //functions definitions here:
 bool
 is_valid_char(char c)
 {
-	return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
-    || c == '%' || c == '+' || c == ',' || c == '-' || c == '.' || c == '!'
-    || c == '/' || c == ':' || c == '@' || c == '^' || c == '_' || c == '*';
+	return (c >= 0 && c <= 9) || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+        || c == '%' || c == '+' || c == ',' || c == '-' || c == '.' || c == '!'
+		|| c == '/' || c == ':' || c == '@' || c == '^' || c == '_' || c == '*';
 }
 
 bool
 is_special_char(char c)
 {
-	return c == ';' || c == '|' || c == '(' || c == ')'
-    || c == '<' || c == '>';
+	return c == ';' || c == '|' || c == '&' || c == '(' || c == ')'
+		|| c == '<' || c == '>' || c == '!';
 }
 
 char *
@@ -205,6 +210,14 @@ enum command_type get_command_type(char *start, size_t *index,size_t size){
                 type = UNTIL_COMMAND;
                 return type;
             }
+            else if (strcmp(word, "for") == 0){
+                type = FOR_COMMAND;
+                return type;
+            }
+            else if (strcmp(word, "case") == 0){
+                type = CASE_COMMAND;
+                return type;
+            }
             else if (strcmp(word, "do") == 0){
                 fprintf(stderr, "Line %d: Unexpected \'do\', missing \'until\'/\'while\'/\'for\'\n", NUM_LINE);
                 exit(1);
@@ -225,6 +238,14 @@ enum command_type get_command_type(char *start, size_t *index,size_t size){
                 fprintf(stderr, "Line %d: Unexpected \'then\', missing \'if\'\n", NUM_LINE);
                 exit(1);
             }
+            else if (strcmp(word, "in") == 0){
+                fprintf(stderr, "Line %d: Unexpected \'in\', missing \'case\'/\'for\'\n", NUM_LINE);
+                exit(1);
+            }
+            else if (strcmp(word, "esac") == 0){
+                fprintf(stderr, "Line %d: Unexpected \'esac\', missing \'case\'\n", NUM_LINE);
+                exit(1);
+            }
             else if (*word== ')'){
                 fprintf(stderr, "Line %d: Unexpected \')\', missing \'(\'\n", NUM_LINE);
                 exit(1);
@@ -238,7 +259,7 @@ enum command_type get_command_type(char *start, size_t *index,size_t size){
                 size_t tmp=*index;
                 word=read_next_token2(start,&tmp,size);
                 while(word!=NULL){
-                    if (strcmp(word, "if") == 0 || strcmp(word, "else") == 0 || strcmp(word, "then") == 0 || strcmp(word, "while") == 0 || strcmp(word, "until") == 0 || strcmp(word, "do") == 0 || strcmp(word, "done") == 0 || strcmp(word, "fi") == 0 || word == NULL ) break;
+                    if (strcmp(word, "if") == 0 || strcmp(word, "else") == 0 || strcmp(word, "then") == 0 || strcmp(word, "while") == 0 || strcmp(word, "until") == 0 || strcmp(word, "do") == 0 || strcmp(word, "done") == 0 || strcmp(word, "fi") == 0 || strcmp(word, "in") == 0 || strcmp(word, "esac") == 0 || word == NULL ) break;
                     if (strchr(word, '|')) {
                         char *pipeline=strchr(word, '|');
                         if(*(pipeline+1) != '|') return PIPE_COMMAND;
@@ -254,6 +275,48 @@ enum command_type get_command_type(char *start, size_t *index,size_t size){
                 while(word!=NULL){
                     if (strcmp(word, "if") == 0 || strcmp(word, "else") == 0 || strcmp(word, "then") == 0 || strcmp(word, "while") == 0 || strcmp(word, "until") == 0 || strcmp(word, "do") == 0 || strcmp(word, "done") == 0 || strcmp(word, "fi") == 0 || strcmp(word, "in") == 0 || strcmp(word, "esac") == 0 || word == NULL ) break;
                     if (strchr(word, ';')) return SEQUENCE_COMMAND;
+                    else word=read_next_token2(start,&tmp,size);
+                }
+                //jugding for OR command
+                word = read_next_token(start, index, size);
+                if (strstr(word, "||")) {
+                    return OR_COMMAND;
+                }
+                tmp=*index;
+                word=read_next_token2(start,&tmp,size);
+                while(word!=NULL){
+                    if (strcmp(word, "if") == 0 || strcmp(word, "else") == 0 || strcmp(word, "then") == 0 || strcmp(word, "while") == 0 || strcmp(word, "until") == 0 || strcmp(word, "do") == 0 || strcmp(word, "done") == 0 || strcmp(word, "fi") == 0 || strcmp(word, "in") == 0 || strcmp(word, "esac") == 0 || word == NULL ) break;
+                    if (strstr(word, "||")) {
+                        return OR_COMMAND;
+                    }
+                    else word=read_next_token2(start,&tmp,size);
+                }
+                //jugding for AND command
+                word = read_next_token(start, index, size);
+                if (strstr(word, "&&")) {
+                    return AND_COMMAND;
+                }
+                tmp=*index;
+                word=read_next_token2(start,&tmp,size);
+                while(word!=NULL){
+                    if (strcmp(word, "if") == 0 || strcmp(word, "else") == 0 || strcmp(word, "then") == 0 || strcmp(word, "while") == 0 || strcmp(word, "until") == 0 || strcmp(word, "do") == 0 || strcmp(word, "done") == 0 || strcmp(word, "fi") == 0 || strcmp(word, "in") == 0 || strcmp(word, "esac") == 0 || word == NULL ) break;
+                    if (strstr(word, "&&")) {
+                        return AND_COMMAND;
+                    }
+                    else word=read_next_token2(start,&tmp,size);
+                }
+                //jugding for NOT command
+                word = read_next_token(start, index,size);
+                if (*word=='!') {
+                    return NOT_COMMAND;
+                }
+                tmp=*index;
+                word=read_next_token2(start,&tmp,size);
+                while(word!=NULL){
+                    if (strcmp(word, "if") == 0 || strcmp(word, "else") == 0 || strcmp(word, "then") == 0 || strcmp(word, "while") == 0 || strcmp(word, "until") == 0 || strcmp(word, "do") == 0 || strcmp(word, "done") == 0 || strcmp(word, "fi") == 0 || strcmp(word, "in") == 0 || strcmp(word, "esac") == 0 || word == NULL ) break;
+                    if (*word=='!') {
+                        return NOT_COMMAND;
+                    }
                     else word=read_next_token2(start,&tmp,size);
                 }
             }
@@ -301,6 +364,11 @@ create_if_command(char *start, size_t *index)
         case SUBSHELL_COMMAND: cmd->u.command[0] = create_subshell_command(start, index); break;
         case UNTIL_COMMAND: cmd->u.command[0] = create_until_command(start, index); break;
         case WHILE_COMMAND: cmd->u.command[0] = create_while_command(start, index); break;
+        case AND_COMMAND: cmd->u.command[0] = create_and_command(start, index, BUFFER_SIZE); break;
+        case OR_COMMAND: cmd->u.command[0] = create_or_command(start, index, BUFFER_SIZE); break;
+        case CASE_COMMAND: cmd->u.command[0] = create_case_command(start, index); break;
+        case FOR_COMMAND: cmd->u.command[0] = create_for_command(start, index); break;
+        case NOT_COMMAND: cmd->u.command[0] = create_not_command(start, index, BUFFER_SIZE); break;
 	}
 	//if no "then", error
 	if ((*index) == BUFFER_SIZE){
@@ -308,10 +376,6 @@ create_if_command(char *start, size_t *index)
 		exit(1);
 	}
 	temp = get_next_word(start, index);
-    if (temp == NULL) {
-		fprintf(stderr, "Line %d: Incomplete if statement, missing \'then\'\n", NUM_LINE);
-		exit(1);
-	}
 	if (strcmp(temp, "then") != 0)
 	{
 		fprintf(stderr, "Line %d: Incomplete if statement, missing \'then\'\n", NUM_LINE);
@@ -328,6 +392,11 @@ create_if_command(char *start, size_t *index)
         case SUBSHELL_COMMAND: cmd->u.command[1] = create_subshell_command(start, index); break;
         case UNTIL_COMMAND: cmd->u.command[1] = create_until_command(start, index); break;
         case WHILE_COMMAND: cmd->u.command[1] = create_while_command(start, index); break;
+        case AND_COMMAND: cmd->u.command[1] = create_and_command(start, index, BUFFER_SIZE); break;
+        case OR_COMMAND: cmd->u.command[1] = create_or_command(start, index, BUFFER_SIZE); break;
+        case CASE_COMMAND: cmd->u.command[1] = create_case_command(start, index); break;
+        case FOR_COMMAND: cmd->u.command[1] = create_for_command(start, index); break;
+        case NOT_COMMAND: cmd->u.command[1] = create_not_command(start, index, BUFFER_SIZE); break;
 	}
 	//if neither "fi" nor "else", error
 	if ((*index) == BUFFER_SIZE){
@@ -356,6 +425,11 @@ create_if_command(char *start, size_t *index)
         case SUBSHELL_COMMAND: cmd->u.command[2] = create_subshell_command(start, index); break;
         case UNTIL_COMMAND: cmd->u.command[2] = create_until_command(start, index); break;
         case WHILE_COMMAND: cmd->u.command[2] = create_while_command(start, index); break;
+        case AND_COMMAND: cmd->u.command[2] = create_and_command(start, index, BUFFER_SIZE); break;
+        case OR_COMMAND: cmd->u.command[2] = create_or_command(start, index, BUFFER_SIZE); break;
+        case CASE_COMMAND: cmd->u.command[2] = create_case_command(start, index); break;
+        case FOR_COMMAND: cmd->u.command[2] = create_for_command(start, index); break;
+        case NOT_COMMAND: cmd->u.command[2] = create_not_command(start, index, BUFFER_SIZE); break;
 	}
 	temp = get_next_word(start, index);
 	if (temp == NULL) {
@@ -367,44 +441,6 @@ create_if_command(char *start, size_t *index)
 		fprintf(stderr, "Line %d: Incomplete if statement, missing \'fi\'\n", NUM_LINE);
 		exit(1);
 	}
-    if (start[*index] != '\n'){
-        temp = read_next_token(start, index, BUFFER_SIZE);
-        if (*temp == '<') {
-            if (cmd->input)  //no more than one input allower
-            {
-                fprintf(stderr, "Line %d: More than one input.\n", NUM_LINE);
-                exit(1);
-            }
-            temp = get_next_word(start, index);
-            (*index)++;
-            cmd->input = get_next_word(start, index);
-            if (!cmd->input) // if input is still empty, error
-            {
-                fprintf(stderr, "Line %d: Invalid input filename: missing input file.\n", NUM_LINE);
-                exit(1);
-            }
-        }
-        else if (*temp == '>') {
-            if (cmd->output) //no more than one output allowed
-            {
-                fprintf(stderr, "Line %d: More than one output.\n", NUM_LINE);
-                exit(1);
-            }
-            temp = get_next_word(start, index);
-            cmd->output = (char *)checked_malloc(sizeof(char));
-            (*index)++;
-            cmd->output = get_next_word(start, index);
-            if (!cmd->output) // if output is still empty, error
-            {
-                fprintf(stderr, "Line %d: Invalid output filename: missing output file.\n", NUM_LINE);
-                exit(1);
-            }
-        }
-        /*else{
-         fprintf(stderr, "Line %d: Redundancy after cmd \'done\'", NUM_LINE);
-         exit(1);
-         }*/
-    }
 	return cmd;
 }
 
@@ -425,6 +461,11 @@ create_pipe_command(char *start, size_t *index)
         case SUBSHELL_COMMAND: cmd->u.command[0] = create_subshell_command(start, index); break;
         case UNTIL_COMMAND: cmd->u.command[0] = create_until_command(start, index); break;
         case WHILE_COMMAND: cmd->u.command[0] = create_while_command(start, index); break;
+        case AND_COMMAND: cmd->u.command[0] = create_and_command(start, index, *index + i); break;
+        case OR_COMMAND: cmd->u.command[0] = create_or_command(start, index, *index + i); break;
+        case CASE_COMMAND: cmd->u.command[0] = create_case_command(start, index); break;
+        case FOR_COMMAND: cmd->u.command[0] = create_for_command(start, index); break;
+        case NOT_COMMAND: cmd->u.command[0] = create_not_command(start, index, *index + i); break;
 	}
 	while (*(start + *index) != EOF && *(start + *index) != '|')
 	{
@@ -442,6 +483,11 @@ create_pipe_command(char *start, size_t *index)
         case SUBSHELL_COMMAND: cmd->u.command[1] = create_subshell_command(start, index); break;
         case UNTIL_COMMAND: cmd->u.command[1] = create_until_command(start, index); break;
         case WHILE_COMMAND: cmd->u.command[1] = create_while_command(start, index); break;
+        case AND_COMMAND: cmd->u.command[1] = create_and_command(start, index, BUFFER_SIZE); break;
+        case OR_COMMAND: cmd->u.command[1] = create_or_command(start, index, BUFFER_SIZE); break;
+        case CASE_COMMAND: cmd->u.command[1] = create_case_command(start, index); break;
+        case FOR_COMMAND: cmd->u.command[1] = create_for_command(start, index); break;
+        case NOT_COMMAND: cmd->u.command[1] = create_not_command(start, index, BUFFER_SIZE); break;
 	}
 	return cmd;
 }
@@ -465,6 +511,11 @@ create_sequence_command(char *start, size_t *index)
         case SUBSHELL_COMMAND: cmd->u.command[0] = create_subshell_command(start, index); break;
         case UNTIL_COMMAND: cmd->u.command[0] = create_until_command(start, index); break;
         case WHILE_COMMAND: cmd->u.command[0] = create_while_command(start, index); break;
+        case AND_COMMAND: cmd->u.command[0] = create_and_command(start, index, *index + i); break;
+        case OR_COMMAND: cmd->u.command[0] = create_or_command(start, index, *index + i); break;
+        case CASE_COMMAND: cmd->u.command[0] = create_case_command(start, index); break;
+        case FOR_COMMAND: cmd->u.command[0] = create_for_command(start, index); break;
+        case NOT_COMMAND: cmd->u.command[0] = create_not_command(start, index, *index + i); break;
 	}
 	while (*(start + *index) != EOF && *(start + *index) != ';')
 	{
@@ -490,6 +541,11 @@ create_sequence_command(char *start, size_t *index)
         case SUBSHELL_COMMAND: cmd->u.command[1] = create_subshell_command(start, index); break;
         case UNTIL_COMMAND: cmd->u.command[1] = create_until_command(start, index); break;
         case WHILE_COMMAND: cmd->u.command[1] = create_while_command(start, index); break;
+        case AND_COMMAND: cmd->u.command[1] = create_and_command(start, index, BUFFER_SIZE); break;
+        case OR_COMMAND: cmd->u.command[1] = create_or_command(start, index, BUFFER_SIZE); break;
+        case CASE_COMMAND: cmd->u.command[1] = create_case_command(start, index); break;
+        case FOR_COMMAND: cmd->u.command[1] = create_for_command(start, index); break;
+        case NOT_COMMAND: cmd->u.command[1] = create_not_command(start, index, BUFFER_SIZE); break;
 	}
 	return cmd;
 }
@@ -503,7 +559,7 @@ create_simple_command(char *start, size_t *index)
 	cmd->u.word[0] = NULL;
 	bool write = false;
 	int num_words = 0, size_words = 1;
-	while (*index < BUFFER_SIZE)
+	while (*(start + *index) != EOF)
 	{
         //printf("%zu %c simple\n", *index, start[*index]);
 		//ignor the space or tab and move on
@@ -528,7 +584,8 @@ create_simple_command(char *start, size_t *index)
 			char *temp = get_next_word(start, index);
 			if (strcmp(temp, "if") == 0 || strcmp(temp, "then") == 0 || strcmp(temp, "else") == 0
 				|| strcmp(temp, "fi") == 0 || strcmp(temp, "while") == 0 || strcmp(temp, "until") == 0
-				|| strcmp(temp, "done") == 0 || strcmp(temp, "do") == 0 )
+				|| strcmp(temp, "done") == 0 || strcmp(temp, "do") == 0 || strcmp(temp, "case") == 0
+				|| strcmp(temp, "in") == 0 || strcmp(temp, "esac") == 0 || strcmp(temp, "for") == 0)
 			{
 				*index -= strlen(temp);
 				break;
@@ -598,11 +655,12 @@ create_simple_command(char *start, size_t *index)
 
 command_t
 create_subshell_command(char *start, size_t *index){
-    command_t cmd = initialize_command(SUBSHELL_COMMAND);
-    (*index)++;
-    enum command_type type = get_command_type(start, index, BUFFER_SIZE);
-    switch (type)
-    {
+    ////printf("*shell*\n");
+	command_t cmd = initialize_command(SUBSHELL_COMMAND);
+	(*index)++;
+	enum command_type type = get_command_type(start, index, BUFFER_SIZE);
+	switch (type)
+	{
         case IF_COMMAND: cmd->u.command[0] = create_if_command(start, index); break;
         case PIPE_COMMAND: cmd->u.command[0] = create_pipe_command(start, index); break;
         case SEQUENCE_COMMAND: cmd->u.command[0] = create_sequence_command(start, index); break;
@@ -610,60 +668,27 @@ create_subshell_command(char *start, size_t *index){
         case SUBSHELL_COMMAND: cmd->u.command[0] = create_subshell_command(start, index); break;
         case UNTIL_COMMAND: cmd->u.command[0] = create_until_command(start, index); break;
         case WHILE_COMMAND: cmd->u.command[0] = create_while_command(start, index); break;
-    }
-    while (*(start + *index) != EOF && *(start + *index) != ')') {
-        if (*(start + *index) == '\n') {
-            ++NUM_LINE;
-            fprintf(stderr, "Line %d: Missing \')\'\n", NUM_LINE);
-            exit(1);
-        }
-        if (*(start + *index + 1) == EOF)
-        {
-            fprintf(stderr, "Line %d: Missing \')\'\n", NUM_LINE);
-            exit(1);
-        }
-        (*index)++;
-    }
-    (*index)++;
-    if (start[*index] != '\n'){
-        char *temp = read_next_token(start, index, BUFFER_SIZE);
-        if (*temp == '<') {
-            if (cmd->input)  //no more than one input allower
-            {
-                fprintf(stderr, "Line %d: More than one input.\n", NUM_LINE);
-                exit(1);
-            }
-            temp = get_next_word(start, index);
-            (*index)++;
-            cmd->input = get_next_word(start, index);
-            if (!cmd->input) // if input is still empty, error
-            {
-                fprintf(stderr, "Line %d: Invalid input filename: missing input file.\n", NUM_LINE);
-                exit(1);
-            }
-        }
-        else if (*temp == '>') {
-            if (cmd->output) //no more than one output allowed
-            {
-                fprintf(stderr, "Line %d: More than one output.\n", NUM_LINE);
-                exit(1);
-            }
-            temp = get_next_word(start, index);
-            cmd->output = (char *)checked_malloc(sizeof(char));
-            (*index)++;
-            cmd->output = get_next_word(start, index);
-            if (!cmd->output) // if output is still empty, error
-            {
-                fprintf(stderr, "Line %d: Invalid output filename: missing output file.\n", NUM_LINE);
-                exit(1);
-            }
-        }
-        /*else{
-         fprintf(stderr, "Line %d: Redundancy after cmd \'done\'", NUM_LINE);
-         exit(1);
-         }*/
-    }
-    return cmd;
+        case AND_COMMAND: cmd->u.command[0] = create_and_command(start, index, BUFFER_SIZE); break;
+        case OR_COMMAND: cmd->u.command[0] = create_or_command(start, index, BUFFER_SIZE); break;
+        case CASE_COMMAND: cmd->u.command[0] = create_case_command(start, index); break;
+        case FOR_COMMAND: cmd->u.command[0] = create_for_command(start, index); break;
+        case NOT_COMMAND: cmd->u.command[0] = create_not_command(start, index, BUFFER_SIZE); break;
+	}
+	while (*(start + *index) != EOF && *(start + *index) != ')') {
+		if (*(start + *index) == '\n') {
+			++NUM_LINE;
+			fprintf(stderr, "Line %d: Missing \')\'\n", NUM_LINE);
+			exit(1);
+		}
+		if (*(start + *index + 1) == EOF)
+		{
+			fprintf(stderr, "Line %d: Missing \')\'\n", NUM_LINE);
+			exit(1);
+		}
+		(*index)++;
+	}
+	(*index)++;
+	return cmd;
 }
 
 command_t
@@ -682,6 +707,11 @@ create_until_command(char *start, size_t *index)
         case SUBSHELL_COMMAND: cmd->u.command[0] = create_subshell_command(start, index); break;
         case UNTIL_COMMAND: cmd->u.command[0] = create_until_command(start, index); break;
         case WHILE_COMMAND: cmd->u.command[0] = create_while_command(start, index); break;
+        case AND_COMMAND: cmd->u.command[0] = create_and_command(start, index, BUFFER_SIZE); break;
+        case OR_COMMAND: cmd->u.command[0] = create_or_command(start, index, BUFFER_SIZE); break;
+        case CASE_COMMAND: cmd->u.command[0] = create_case_command(start, index); break;
+        case FOR_COMMAND: cmd->u.command[0] = create_for_command(start, index); break;
+        case NOT_COMMAND: cmd->u.command[0] = create_not_command(start, index, BUFFER_SIZE); break;
 	}
 	//if no "do", error
 	if ((*index) == BUFFER_SIZE){
@@ -705,6 +735,11 @@ create_until_command(char *start, size_t *index)
         case SUBSHELL_COMMAND: cmd->u.command[1] = create_subshell_command(start, index); break;
         case UNTIL_COMMAND: cmd->u.command[1] = create_until_command(start, index); break;
         case WHILE_COMMAND: cmd->u.command[1] = create_while_command(start, index); break;
+        case AND_COMMAND: cmd->u.command[1] = create_and_command(start, index, BUFFER_SIZE); break;
+        case OR_COMMAND: cmd->u.command[1] = create_or_command(start, index, BUFFER_SIZE); break;
+        case CASE_COMMAND: cmd->u.command[1] = create_case_command(start, index); break;
+        case FOR_COMMAND: cmd->u.command[1] = create_for_command(start, index); break;
+        case NOT_COMMAND: cmd->u.command[1] = create_not_command(start, index, BUFFER_SIZE); break;
 	}
 	//if no "done", error
 	if ((*index) == BUFFER_SIZE){
@@ -717,44 +752,6 @@ create_until_command(char *start, size_t *index)
 		fprintf(stderr, "ERROR at Line %d: Incomplete until statement, missing \'done\'\n", NUM_LINE);
 		exit(1);
 	}
-    if (start[*index] != '\n'){
-        temp = read_next_token(start, index, BUFFER_SIZE);
-        if (*temp == '<') {
-            if (cmd->input)  //no more than one input allower
-            {
-                fprintf(stderr, "Line %d: More than one input.\n", NUM_LINE);
-                exit(1);
-            }
-            temp = get_next_word(start, index);
-            (*index)++;
-            cmd->input = get_next_word(start, index);
-            if (!cmd->input) // if input is still empty, error
-            {
-                fprintf(stderr, "Line %d: Invalid input filename: missing input file.\n", NUM_LINE);
-                exit(1);
-            }
-        }
-        else if (*temp == '>') {
-            if (cmd->output) //no more than one output allowed
-            {
-                fprintf(stderr, "Line %d: More than one output.\n", NUM_LINE);
-                exit(1);
-            }
-            temp = get_next_word(start, index);
-            cmd->output = (char *)checked_malloc(sizeof(char));
-            (*index)++;
-            cmd->output = get_next_word(start, index);
-            if (!cmd->output) // if output is still empty, error
-            {
-                fprintf(stderr, "Line %d: Invalid output filename: missing output file.\n", NUM_LINE);
-                exit(1);
-            }
-        }
-        /*else{
-         fprintf(stderr, "Line %d: Redundancy after cmd \'done\'", NUM_LINE);
-         exit(1);
-         }*/
-    }
 	return cmd;
 }
 
@@ -774,6 +771,11 @@ create_while_command(char *start, size_t *index)
         case SUBSHELL_COMMAND: cmd->u.command[0] = create_subshell_command(start, index); break;
         case UNTIL_COMMAND: cmd->u.command[0] = create_until_command(start, index); break;
         case WHILE_COMMAND: cmd->u.command[0] = create_while_command(start, index); break;
+        case AND_COMMAND: cmd->u.command[0] = create_and_command(start, index, BUFFER_SIZE); break;
+        case OR_COMMAND: cmd->u.command[0] = create_or_command(start, index, BUFFER_SIZE); break;
+        case CASE_COMMAND: cmd->u.command[0] = create_case_command(start, index); break;
+        case FOR_COMMAND: cmd->u.command[0] = create_for_command(start, index); break;
+        case NOT_COMMAND: cmd->u.command[0] = create_not_command(start, index, BUFFER_SIZE); break;
 	}
 	//if no "do", error
 	if ((*index) == BUFFER_SIZE){
@@ -807,6 +809,11 @@ create_while_command(char *start, size_t *index)
         case SUBSHELL_COMMAND: cmd->u.command[1] = create_subshell_command(start, index); break;
         case UNTIL_COMMAND: cmd->u.command[1] = create_until_command(start, index); break;
         case WHILE_COMMAND: cmd->u.command[1] = create_while_command(start, index); break;
+        case AND_COMMAND: cmd->u.command[1] = create_and_command(start, index, BUFFER_SIZE); break;
+        case OR_COMMAND: cmd->u.command[1] = create_or_command(start, index, BUFFER_SIZE); break;
+        case CASE_COMMAND: cmd->u.command[1] = create_case_command(start, index); break;
+        case FOR_COMMAND: cmd->u.command[1] = create_for_command(start, index); break;
+        case NOT_COMMAND: cmd->u.command[1] = create_not_command(start, index, BUFFER_SIZE); break;
 	}
 	//if no "done", error
 	if ((*index) == BUFFER_SIZE){
@@ -840,7 +847,392 @@ create_while_command(char *start, size_t *index)
 	}
 	return cmd;
 }
+///
+command_t
+create_and_command(char *start, size_t *index, size_t size)
+{
+    //////printf("*and*\n");
+	command_t cmd = initialize_command(AND_COMMAND);
+	int i = 0;
+	while (!(*(start + *index + i) == '&' && *(start + *index + i + 1) == '&')) i++;
+    size_t tem = (*index + i < size)?*index + i:size;
+    //////printf("and mid %zu\n", *index + i);
+	enum command_type type = get_command_type(start, index, tem);
+	switch (type)
+	{
+        case IF_COMMAND: cmd->u.command[0] = create_if_command(start, index); break;
+        case PIPE_COMMAND: cmd->u.command[0] = create_pipe_command(start, index); break;
+        case SEQUENCE_COMMAND: cmd->u.command[0] = create_sequence_command(start, index); break;
+        case SIMPLE_COMMAND: cmd->u.command[0] = create_simple_command(start, index); break;
+        case SUBSHELL_COMMAND: cmd->u.command[0] = create_subshell_command(start, index); break;
+        case UNTIL_COMMAND: cmd->u.command[0] = create_until_command(start, index); break;
+        case WHILE_COMMAND: cmd->u.command[0] = create_while_command(start, index); break;
+        case AND_COMMAND: cmd->u.command[0] = create_and_command(start, index, tem); break;
+        case OR_COMMAND: cmd->u.command[0] = create_or_command(start, index, tem); break;
+        case CASE_COMMAND: cmd->u.command[0] = create_case_command(start, index); break;
+        case FOR_COMMAND: cmd->u.command[0] = create_for_command(start, index); break;
+        case NOT_COMMAND: cmd->u.command[0] = create_not_command(start, index, tem); break;
+	}
+	while (*(start + *index) != EOF && *(start + *index) != '&') {
+		if (*(start + *index) == '\n') {
+			++NUM_LINE;
+			fprintf(stderr, "Line %d: missing &&\n", NUM_LINE);
+			exit(1);
+		}
+		if (*(start + *index + 1) == EOF)
+		{
+			fprintf(stderr, "Line %d: missing &&\n", NUM_LINE);
+			exit(1);
+		}
+		(*index)++;
+	}
+	(*index) += 2;
+	type = get_command_type(start, index, size);
+	switch (type)
+	{
+        case IF_COMMAND: cmd->u.command[1] = create_if_command(start, index); break;
+        case PIPE_COMMAND: cmd->u.command[1] = create_pipe_command(start, index); break;
+        case SEQUENCE_COMMAND: cmd->u.command[1] = create_sequence_command(start, index); break;
+        case SIMPLE_COMMAND: cmd->u.command[1] = create_simple_command(start, index); break;
+        case SUBSHELL_COMMAND: cmd->u.command[1] = create_subshell_command(start, index); break;
+        case UNTIL_COMMAND: cmd->u.command[1] = create_until_command(start, index); break;
+        case WHILE_COMMAND: cmd->u.command[1] = create_while_command(start, index); break;
+        case AND_COMMAND: cmd->u.command[1] = create_and_command(start, index, size); break;
+        case OR_COMMAND: cmd->u.command[1] = create_or_command(start, index, size); break;
+        case CASE_COMMAND: cmd->u.command[1] = create_case_command(start, index); break;
+        case FOR_COMMAND: cmd->u.command[1] = create_for_command(start, index); break;
+        case NOT_COMMAND: cmd->u.command[1] = create_not_command(start, index, size); break;
+	}
+	return cmd;
+}
 
+command_t
+create_or_command(char *start, size_t *index, size_t size)
+{
+    //////printf("*or*\n");
+	command_t cmd = initialize_command(OR_COMMAND);
+	int i = 0;
+	while (!(*(start + *index + i) == '|' && *(start + *index + i + 1) == '|')) i++;
+    size_t tem = (*index + i < size)?*index + i:size;
+    //////printf("or mid %zu\n", *index + i);
+	enum command_type type = get_command_type(start, index, tem);
+	switch (type)
+	{
+        case IF_COMMAND: cmd->u.command[0] = create_if_command(start, index); break;
+        case PIPE_COMMAND: cmd->u.command[0] = create_pipe_command(start, index); break;
+        case SEQUENCE_COMMAND: cmd->u.command[0] = create_sequence_command(start, index); break;
+        case SIMPLE_COMMAND: cmd->u.command[0] = create_simple_command(start, index); break;
+        case SUBSHELL_COMMAND: cmd->u.command[0] = create_subshell_command(start, index); break;
+        case UNTIL_COMMAND: cmd->u.command[0] = create_until_command(start, index); break;
+        case WHILE_COMMAND: cmd->u.command[0] = create_while_command(start, index); break;
+        case AND_COMMAND: cmd->u.command[0] = create_and_command(start, index, tem); break;
+        case OR_COMMAND: cmd->u.command[0] = create_or_command(start, index, tem); break;
+        case CASE_COMMAND: cmd->u.command[0] = create_case_command(start, index); break;
+        case FOR_COMMAND: cmd->u.command[0] = create_for_command(start, index); break;
+        case NOT_COMMAND: cmd->u.command[0] = create_not_command(start, index, tem); break;
+	}
+	while (*(start + *index) != EOF && *(start + *index) != '|') {
+		if (*(start + *index) == '\n') {
+			++NUM_LINE;
+			fprintf(stderr, "Line %d: Missing ||\n", NUM_LINE);
+			exit(1);
+		}
+		if (*(start + *index + 1) == EOF)
+		{
+			fprintf(stderr, "Line %d: Missing ||'\n", NUM_LINE);
+			exit(1);
+		}
+		(*index)++;
+	}
+	(*index) += 2;
+    char *word = read_next_token(start, index, size);
+    ////////printf("%d \n", int(strlen(word)));
+    if(strlen(word) == 0){
+        fprintf(stderr, "Missing bool expression after ||\n");
+        exit(1);
+    }
+	type = get_command_type(start, index, size);
+	switch (type)
+	{
+        case IF_COMMAND: cmd->u.command[1] = create_if_command(start, index); break;
+        case PIPE_COMMAND: cmd->u.command[1] = create_pipe_command(start, index); break;
+        case SEQUENCE_COMMAND: cmd->u.command[1] = create_sequence_command(start, index); break;
+        case SIMPLE_COMMAND: cmd->u.command[1] = create_simple_command(start, index); break;
+        case SUBSHELL_COMMAND: cmd->u.command[1] = create_subshell_command(start, index); break;
+        case UNTIL_COMMAND: cmd->u.command[1] = create_until_command(start, index); break;
+        case WHILE_COMMAND: cmd->u.command[1] = create_while_command(start, index); break;
+        case AND_COMMAND: cmd->u.command[1] = create_and_command(start, index, size); break;
+        case OR_COMMAND: cmd->u.command[1] = create_or_command(start, index, size); break;
+        case CASE_COMMAND: cmd->u.command[1] = create_case_command(start, index); break;
+        case FOR_COMMAND: cmd->u.command[1] = create_for_command(start, index); break;
+        case NOT_COMMAND: cmd->u.command[1] = create_not_command(start, index, size); break;
+	}
+    ////////printf("before test\n");
+    if (type == SIMPLE_COMMAND && cmd->u.command[1] == NULL)
+    {
+        ////////printf("success\n");
+        fprintf(stderr, "Missing bool expression after ||\n");
+        exit(1);
+    }
+	return cmd;
+}
+
+command_t
+create_case_command(char *start, size_t *index)
+{
+	char *temp = get_next_word(start, index); //pass the "case"
+    //printf("case0\n");
+	command_t cmd = initialize_command(CASE_COMMAND);
+    //printf("case0.1\n");
+	enum command_type type = get_command_type(start, index, BUFFER_SIZE);
+    //printf("case0.2  type: %d \n", type);
+    cmd->u.casecmd = (command_t*)checked_malloc(sizeof(command_t)*3);
+	cmd->u.casecmd[0] = (command_t)checked_malloc(sizeof(struct command));
+	cmd->u.casecmd[1] = NULL;
+    //printf("case1\n");
+	switch (type)
+	{
+        case IF_COMMAND: cmd->u.casecmd[0] = create_if_command(start, index); break;
+        case PIPE_COMMAND: cmd->u.casecmd[0] = create_pipe_command(start, index); break;
+        case SEQUENCE_COMMAND: cmd->u.casecmd[0] = create_sequence_command(start, index); break;
+        case SIMPLE_COMMAND: cmd->u.casecmd[0] = create_simple_command(start, index); break;
+        case SUBSHELL_COMMAND: cmd->u.casecmd[0] = create_subshell_command(start, index); break;
+        case UNTIL_COMMAND: cmd->u.casecmd[0] = create_until_command(start, index); break;
+        case WHILE_COMMAND: cmd->u.casecmd[0] = create_while_command(start, index); break;
+        case AND_COMMAND: cmd->u.casecmd[0] = create_and_command(start, index, BUFFER_SIZE); break;
+        case OR_COMMAND: cmd->u.casecmd[0] = create_or_command(start, index, BUFFER_SIZE); break;
+        case CASE_COMMAND: cmd->u.casecmd[0] = create_case_command(start, index); break;
+        case FOR_COMMAND: cmd->u.casecmd[0] = create_for_command(start, index); break;
+        case NOT_COMMAND: cmd->u.casecmd[0] = create_not_command(start, index, BUFFER_SIZE); break;
+	}
+    //printf("case2\n");
+	if ((*index) == BUFFER_SIZE){
+		fprintf(stderr, "Line %d: Incomplete case statement, missing \'in\'\n", NUM_LINE);
+		exit(1);
+	}
+	temp = get_next_word(start, index);
+	if (temp == NULL) {
+		fprintf(stderr, "Line %d: Incomplete case statement, missing \'in\'\n", NUM_LINE);
+		exit(1);
+	}
+	if (strcmp(temp, "in") != 0)
+	{
+		fprintf(stderr, "Line %d: Incomplete case statement, missing \'in\'\n", NUM_LINE);
+		exit(1);
+	}
+    //printf("case3\n");
+	int i = 1, maxsize = 2;
+	while (strcmp(temp, "esac") != 0)
+	{
+		if (i > 1) (*index) -= strlen(temp);
+        if (i == maxsize)
+        {
+            maxsize *= 2;
+            cmd->u.casecmd = (command_t *)checked_realloc(cmd->u.casecmd, maxsize * sizeof(command_t));
+        }
+		type = get_command_type(start, index, BUFFER_SIZE);
+		cmd->u.casecmd[i] = (command_t)checked_malloc(sizeof(struct command));
+		cmd->u.casecmd[i + 1] = NULL;
+		switch (type)
+		{
+            case IF_COMMAND: cmd->u.casecmd[i] = create_if_command(start, index); break;
+            case PIPE_COMMAND: cmd->u.casecmd[i] = create_pipe_command(start, index); break;
+            case SEQUENCE_COMMAND: cmd->u.casecmd[i] = create_sequence_command(start, index); break;
+            case SIMPLE_COMMAND: cmd->u.casecmd[i] = create_simple_command(start, index); break;
+            case SUBSHELL_COMMAND: cmd->u.casecmd[i] = create_subshell_command(start, index); break;
+            case UNTIL_COMMAND: cmd->u.casecmd[i] = create_until_command(start, index); break;
+            case WHILE_COMMAND: cmd->u.casecmd[i] = create_while_command(start, index); break;
+            case AND_COMMAND: cmd->u.casecmd[i] = create_and_command(start, index, BUFFER_SIZE); break;
+            case OR_COMMAND: cmd->u.casecmd[i] = create_or_command(start, index, BUFFER_SIZE); break;
+            case CASE_COMMAND: cmd->u.casecmd[i] = create_case_command(start, index); break;
+            case FOR_COMMAND: cmd->u.casecmd[i] = create_for_command(start, index); break;
+            case NOT_COMMAND: cmd->u.casecmd[i] = create_not_command(start, index, BUFFER_SIZE); break;
+		}
+		while (*(start + *index) != EOF && *(start + *index) != ')')
+		{
+			if (*(start + *index) == '\n') {
+				++NUM_LINE;
+				fprintf(stderr, "Line %d: Missing \')\'\n", NUM_LINE);
+				exit(1);
+			}
+			if (*(start + *index + 1) == EOF)
+			{
+				fprintf(stderr, "Line %d: Missing \')\'\n", NUM_LINE);
+				exit(1);
+			}
+			(*index)++;
+		}
+        (*index)++;
+		i++;
+        if (i == maxsize)
+        {
+            maxsize *= 2;
+            cmd->u.casecmd = checked_realloc(cmd->u.casecmd, maxsize * sizeof(command_t));
+        }
+		type = get_command_type(start, index, BUFFER_SIZE);
+		cmd->u.casecmd[i] = (command_t)checked_malloc(sizeof(struct command));
+		cmd->u.casecmd[i + 1] = NULL;
+		switch (type)
+		{
+            case IF_COMMAND: cmd->u.casecmd[i] = create_if_command(start, index); break;
+            case PIPE_COMMAND: cmd->u.casecmd[i] = create_pipe_command(start, index); break;
+            case SEQUENCE_COMMAND: cmd->u.casecmd[i] = create_sequence_command(start, index); break;
+            case SIMPLE_COMMAND: cmd->u.casecmd[i] = create_simple_command(start, index); break;
+            case SUBSHELL_COMMAND: cmd->u.casecmd[i] = create_subshell_command(start, index); break;
+            case UNTIL_COMMAND: cmd->u.casecmd[i] = create_until_command(start, index); break;
+            case WHILE_COMMAND: cmd->u.casecmd[i] = create_while_command(start, index); break;
+            case AND_COMMAND: cmd->u.casecmd[i] = create_and_command(start, index, BUFFER_SIZE); break;
+            case OR_COMMAND: cmd->u.casecmd[i] = create_or_command(start, index, BUFFER_SIZE); break;
+            case CASE_COMMAND: cmd->u.casecmd[i] = create_case_command(start, index); break;
+            case FOR_COMMAND: cmd->u.casecmd[i] = create_for_command(start, index); break;
+            case NOT_COMMAND: cmd->u.casecmd[i] = create_not_command(start, index, BUFFER_SIZE); break;
+		}
+		while (*(start + *index) != EOF && *(start + *index) != ';') {
+			if (*(start + *index) == '\n') {
+				++NUM_LINE;
+				//fprintf(stderr, "Line %d: missing ;;\n", NUM_LINE);
+				//exit(1);
+			}
+			if (*(start + *index + 1) == EOF)
+			{
+				fprintf(stderr, "Line %d: missing ;;\n", NUM_LINE);
+				exit(1);
+			}
+			(*index)++;
+		}
+		if (!(*(start + *index) == ';' && *(start + *index + 1) == ';'))
+		{
+			fprintf(stderr, "Line %d: missing ;;\n", NUM_LINE);
+			exit(1);
+		}
+        //printf("%c %c \n", start[*index], start[*index + 1]);
+		*(index) += 2;
+        i++;
+		temp = get_next_word(start, index);
+	}
+    //printf("the end\n");
+	return cmd;
+}
+
+command_t
+create_for_command(char *start, size_t *index)
+{
+	char *temp = get_next_word(start, index); //pass the "for"
+	command_t cmd = initialize_command(FOR_COMMAND);
+	//store the command between "for" and "in"
+	enum command_type type = get_command_type(start, index, BUFFER_SIZE);
+	switch (type)
+	{
+        case IF_COMMAND: cmd->u.command[0] = create_if_command(start, index); break;
+        case PIPE_COMMAND: cmd->u.command[0] = create_pipe_command(start, index); break;
+        case SEQUENCE_COMMAND: cmd->u.command[0] = create_sequence_command(start, index); break;
+        case SIMPLE_COMMAND: cmd->u.command[0] = create_simple_command(start, index); break;
+        case SUBSHELL_COMMAND: cmd->u.command[0] = create_subshell_command(start, index); break;
+        case UNTIL_COMMAND: cmd->u.command[0] = create_until_command(start, index); break;
+        case WHILE_COMMAND: cmd->u.command[0] = create_while_command(start, index); break;
+        case AND_COMMAND: cmd->u.command[0] = create_and_command(start, index, BUFFER_SIZE); break;
+        case OR_COMMAND: cmd->u.command[0] = create_or_command(start, index, BUFFER_SIZE); break;
+        case CASE_COMMAND: cmd->u.command[0] = create_case_command(start, index); break;
+        case FOR_COMMAND: cmd->u.command[0] = create_for_command(start, index); break;
+        case NOT_COMMAND: cmd->u.command[0] = create_not_command(start, index, BUFFER_SIZE); break;
+	}
+	//if no "in", error
+	if ((*index) == BUFFER_SIZE){
+		fprintf(stderr, "Line %d: Incomplete for statement, missing \'in\'\n", NUM_LINE);
+		exit(1);
+	}
+	temp = get_next_word(start, index);
+	if (temp == NULL) {
+		fprintf(stderr, "Line %d: Incomplete for statement, missing \'in\'\n", NUM_LINE);
+		exit(1);
+	}
+	if (strcmp(temp, "in") != 0)
+	{
+		fprintf(stderr, "Line %d: Incomplete for statement, missing \'in\'\n", NUM_LINE);
+		exit(1);
+	}
+	//store the command between "in" and "do"
+	type = get_command_type(start, index, BUFFER_SIZE);
+	switch (type)
+	{
+        case IF_COMMAND: cmd->u.command[1] = create_if_command(start, index); break;
+        case PIPE_COMMAND: cmd->u.command[1] = create_pipe_command(start, index); break;
+        case SEQUENCE_COMMAND: cmd->u.command[1] = create_sequence_command(start, index); break;
+        case SIMPLE_COMMAND: cmd->u.command[1] = create_simple_command(start, index); break;
+        case SUBSHELL_COMMAND: cmd->u.command[1] = create_subshell_command(start, index); break;
+        case UNTIL_COMMAND: cmd->u.command[1] = create_until_command(start, index); break;
+        case WHILE_COMMAND: cmd->u.command[1] = create_while_command(start, index); break;
+        case AND_COMMAND: cmd->u.command[1] = create_and_command(start, index, BUFFER_SIZE); break;
+        case OR_COMMAND: cmd->u.command[1] = create_or_command(start, index, BUFFER_SIZE); break;
+        case CASE_COMMAND: cmd->u.command[1] = create_case_command(start, index); break;
+        case FOR_COMMAND: cmd->u.command[1] = create_for_command(start, index); break;
+        case NOT_COMMAND: cmd->u.command[1] = create_not_command(start, index, BUFFER_SIZE); break;
+	}
+	//if neither "fi" nor "else", error
+	if ((*index) == BUFFER_SIZE){
+		fprintf(stderr, "Line %d: Incomplete for statement, missing \'do\'\n", NUM_LINE);
+		exit(1);
+	}
+	temp = get_next_word(start, index);
+	if (temp == NULL) {
+		fprintf(stderr, "Line %d: Incomplete for statement, missing \'do\'\n", NUM_LINE);
+		exit(1);
+	}
+	if (strcmp(temp, "do") != 0)
+	{
+		fprintf(stderr, "Line %d: Incomplete for statement, missing \'do\'\n", NUM_LINE);
+		exit(1);
+	}
+	//store the command between "do" and "done"
+	type = get_command_type(start, index, BUFFER_SIZE);
+	switch (type)
+	{
+        case IF_COMMAND: cmd->u.command[2] = create_if_command(start, index); break;
+        case PIPE_COMMAND: cmd->u.command[2] = create_pipe_command(start, index); break;
+        case SEQUENCE_COMMAND: cmd->u.command[2] = create_sequence_command(start, index); break;
+        case SIMPLE_COMMAND: cmd->u.command[2] = create_simple_command(start, index); break;
+        case SUBSHELL_COMMAND: cmd->u.command[2] = create_subshell_command(start, index); break;
+        case UNTIL_COMMAND: cmd->u.command[2] = create_until_command(start, index); break;
+        case WHILE_COMMAND: cmd->u.command[2] = create_while_command(start, index); break;
+        case AND_COMMAND: cmd->u.command[2] = create_and_command(start, index, BUFFER_SIZE); break;
+        case OR_COMMAND: cmd->u.command[2] = create_or_command(start, index, BUFFER_SIZE); break;
+        case CASE_COMMAND: cmd->u.command[2] = create_case_command(start, index); break;
+        case FOR_COMMAND: cmd->u.command[2] = create_for_command(start, index); break;
+        case NOT_COMMAND: cmd->u.command[2] = create_not_command(start, index, BUFFER_SIZE); break;
+	}
+	temp = get_next_word(start, index);
+	if (temp == NULL) {
+		fprintf(stderr, "Line %d: Incomplete for statement, missing \'done\'\n", NUM_LINE);
+		exit(1);
+	}
+	if (strcmp(temp, "done") != 0)
+	{
+		fprintf(stderr, "Line %d: Incomplete for statement, missing \'done\'\n", NUM_LINE);
+		exit(1);
+	}
+	return cmd;
+}
+
+command_t
+create_not_command(char* start, size_t *index, size_t size)
+{
+    ////printf("*not*\n");
+    ////printf("not end %zu\n", size);
+	command_t cmd = initialize_command(NOT_COMMAND);
+	(*index)++; //pass the "!"
+    ////printf("%c  %zu",start[*index],*index);
+	enum command_type type = get_command_type(start, index, size);
+    //////printf("%d\n",type);
+	if (type == SIMPLE_COMMAND) cmd->u.command[0] = create_simple_command(start, index);
+	else if (type == SUBSHELL_COMMAND) cmd->u.command[0] = create_subshell_command(start, index);
+	else
+	{
+		fprintf(stderr, "Line %d: invalid", NUM_LINE);
+		exit(1);
+	}
+	return cmd;
+}
+///
 command_stream_t
 make_command_stream(int(*get_next_byte) (void *),
                     void *get_next_byte_argument)
@@ -908,6 +1300,22 @@ make_command_stream(int(*get_next_byte) (void *),
                 break;
             case WHILE_COMMAND:
                 cmd = create_while_command(buffer, index);
+                break;
+            case AND_COMMAND:
+                cmd = create_and_command(buffer, index, BUFFER_SIZE);
+                break;
+            case OR_COMMAND:
+                cmd = create_or_command(buffer, index, BUFFER_SIZE);
+                break;
+            case CASE_COMMAND:
+                cmd = create_case_command(buffer, index);
+                break;
+            case FOR_COMMAND:
+                cmd = create_for_command(buffer, index);
+                break;
+            case NOT_COMMAND:
+                ////printf("%zu size", BUFFER_SIZE);
+                cmd = create_not_command(buffer, index, BUFFER_SIZE);
                 break;
             default:
                 fprintf(stderr, "Line %d: Wrong CMD Type.\n", NUM_LINE);

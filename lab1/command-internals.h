@@ -24,10 +24,12 @@ enum command_type
     SUBSHELL_COMMAND,    // ( A )
     UNTIL_COMMAND,	 // until A do B done
     WHILE_COMMAND,	 // while A do B done
+    AND_COMMAND,  // A && B
+    OR_COMMAND,   // A || B
+    CASE_COMMAND,  // case A in B) C ;; D) E ;; esac
+    FOR_COMMAND,    // for A in B do C done
+    NOT_COMMAND,  // !A
   };
-
-//for lab1c parallelism
-
 
 // Data associated with a command.
 struct command
@@ -49,5 +51,6 @@ struct command
     // For all other kinds of commands.  Trailing entries are unused.
     // Only IF_COMMAND uses all three entries.
     struct command *command[3];
+    struct command ** casecmd; // CASE_COMMAND
   } u;
 };

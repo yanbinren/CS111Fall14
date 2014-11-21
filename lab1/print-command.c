@@ -21,9 +21,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+
 static void
 command_indented_print (int indent, command_t c)
 {
+    int index=0;
   switch (c->type)
     {
     case IF_COMMAND:
@@ -42,7 +44,7 @@ command_indented_print (int indent, command_t c)
 	}
       printf ("\n%*s%s", indent, "", c->type == IF_COMMAND ? "fi" : "done");
       break;
-
+    
     case SEQUENCE_COMMAND:
     case PIPE_COMMAND:
       {
@@ -54,7 +56,6 @@ command_indented_print (int indent, command_t c)
 				c->u.command[1]);
 	break;
       }
-
     case SIMPLE_COMMAND:
       {
 	char **w = c->u.word;
@@ -69,7 +70,58 @@ command_indented_print (int indent, command_t c)
       command_indented_print (indent + 1, c->u.command[0]);
       printf ("\n%*s)", indent, "");
       break;
-
+    case AND_COMMAND:
+    case OR_COMMAND:
+    {
+        command_indented_print (indent + 2 * (c->u.command[0]->type != c->type),
+                                    c->u.command[0]);
+        char separator = c->type == AND_COMMAND ? '&' : '|';
+        printf (" \\\n%*s%c%c\n", indent, "", separator,separator);
+        command_indented_print (indent + 2 * (c->u.command[1]->type != c->type),
+                                    c->u.command[1]);
+        break;
+    }
+    case NOT_COMMAND:
+        printf ("%*s!\n", indent, "");
+        command_indented_print (indent + 1, c->u.command[0]);
+        break;
+    case FOR_COMMAND:
+            printf ("%*s%s\n", indent, "", "for");
+            command_indented_print (indent + 2, c->u.command[0]);
+            printf ("\n%*s%s\n", indent, "", "in");
+            command_indented_print (indent + 2, c->u.command[1]);
+            if (c->u.command[2])
+        {
+            printf ("\n%*sdo\n", indent, "");
+            command_indented_print (indent + 2, c->u.command[2]);
+        }
+            printf ("\n%*s%s", indent, "", "done");
+            break;
+            
+    case CASE_COMMAND:
+            printf ("%*s%s\n", indent, "", "case");
+            command_indented_print (indent + 2, c->u.casecmd[index++]);
+            printf ("\n%*s%s\n", indent, "", "in");
+            command_indented_print (indent + 2, c->u.casecmd[index++]);
+            printf (")\n");
+            //printf ("\n%*s)\n", indent, "");
+            command_indented_print (indent + 4, c->u.casecmd[index++]);
+            printf ("\n%*s%s\n", indent, "", ";;");
+            while (1) {
+                int next_condition=index++;
+                int next_command=index++;
+                if(c->u.casecmd[next_condition]){
+                    command_indented_print (indent + 2, c->u.casecmd[next_condition]);
+                    printf (")\n");
+                    //printf ("\n%*s%s", indent, "", ")");
+                    command_indented_print (indent + 4, c->u.casecmd[next_command]);
+                    printf ("\n%*s%s\n", indent, "", ";;");
+                }else
+                    break;
+            }
+            printf ("%*s%s", indent, "", "esac");
+            break;
+            
     default:
       abort ();
     }
