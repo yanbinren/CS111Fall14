@@ -445,7 +445,7 @@ ospfs_dir_readdir(struct file *filp, void *dirent, filldir_t filldir)
     
 	// actual entries
 	while (r == 0 && ok_so_far >= 0 && f_pos >= 2) {
-		ospfs_direntry_t *od=ospfs_inode_data(dir_oi, f_pos*OSPFS_DIRENTRY_SIZE);
+		ospfs_direntry_t *od=ospfs_inode_data(dir_oi, f_pos-2);
 		ospfs_inode_t *entry_oi=ospfs_inode(od->od_ino);
         /* If at the end of the directory, set 'r' to 1 and exit
 		 * the loop.  For now we do this all the time.
@@ -498,7 +498,7 @@ ospfs_dir_readdir(struct file *filp, void *dirent, filldir_t filldir)
             break;
         }
         f_pos+=1;
-        if (f_pos > dir_oi->oi_size *OSPFS_DIRENTRY_SIZE) {
+        if (f_pos-2 >= dir_oi->oi_size) {
             r=1;
             break;
         }
