@@ -1,0 +1,51 @@
+Name: Yanbin Ren
+UCLA ID: 004435008
+
+Collaborators:
+
+-------------------------------------------------------------------------------
+
+Response to Exercise 1:
+
+The name of the scheduling algorithm is: Round-robin
+
+
+(Exercise 2 is a coding exercise)
+
+
+Response to Exercise 3:
+
+Average turnaround time for scheduling_algorithm 0: 
+	(1277+1278+1279+1280)/4 = 1278.5 ms
+Average turnaround time for scheduling_algorithm 1: 
+	(320+320*2+320*3+320*4)/4 = 800 ms
+
+Average wait time for scheduling_algorithm 0: 
+	(0+1+2+3)/4 = 1.5 ms
+Average wait time for scheduling_algorithm 1: 
+	(0+320+320*2+320*3)/4 = 480 ms
+
+
+Exercise 4:
+
+Did you complete Exercise 4A, Exercise 4B, or both for extra credit?
+
+Both.
+
+
+Exercise 5:
+
+During the execution of process 4, the first known timer interrupt occurs. In this scheduling algorithm (round-robin), each process will take over the CPU slot one by one and print a character on the screen. If there is no timer interrupt, the output should look like: 1234 1234 1234 1234 … However, the current output is: 1234 1234 1234 1234 1231 2341, and process 4 was unable to print ‘4’ during the rr cycle.
+
+
+(Exercise 6 is a coding exercise)
+Implement a new system call that atomically prints a character to the console.
+
+Anything else you'd like us to know:
+
+
+Extra credit exercises: Exercise 7 & 8
+
+For exercise 7, I implemented a priority-based round-robin thread scheduling algorithm. To test with this new interesting scheduling algorithm, set the scheduling_algorithm in start(void) function in “schedos-kern.c” to 4. Literally, this scheduling algorithm maintains several virtual priority queues. Among the threads with the same priority, the algorithm uses round-robin to schedule these threads. 
+
+For exercise 8, I implemented another synchronization mechanism with atomic lock. To switch from different synchronization mechanisms, modify the macro definition SYNC_METHOD in “schedos-1.c”. When SYNC_METHOD == 1, it uses original synchronization mechanism; otherwise, it uses the synchronization mechanism implemented in Exercise 8.
