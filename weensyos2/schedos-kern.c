@@ -226,14 +226,16 @@ schedule(void)
     }
     if (scheduling_algorithm == 2){ //exercise 4A: set priority
         int i;
+        int currentpid=pid;
         pid_t highest_priority_pid=0;
         unsigned int priority=0xFFFFFFFF;
         while (1) {
-            for (i=1; i<NPROCS; ++i) {
-                if(proc_array[i].p_state == P_RUNNABLE){
-                    if (proc_array[i].p_priority<priority) {
-                        highest_priority_pid=i;
-                        priority=proc_array[i].p_priority;
+            for (i=0; i<5; ++i) {
+                pid= (currentpid+i) % NPROCS;
+                if(proc_array[pid].p_state == P_RUNNABLE){
+                    if (proc_array[pid].p_priority<=priority) {
+                        highest_priority_pid=pid;
+                        priority=proc_array[pid].p_priority;
                     }
                 }
             }
@@ -255,13 +257,26 @@ schedule(void)
             }else pid= (pid+1) % NPROCS;
 		}
     }
-    if (scheduling_algorithm == 4){ //priority-based RR scheduling
+    if (scheduling_algorithm == 4){ //multi-level queue scheduling
         int i;
         int currentpid=pid;
         pid_t highest_priority_pid=0;
         unsigned int priority=0xFFFFFFFF;
+        for (i=0; i<NPROCS; ++i) {
+            if (proc_array[i].p_state == P_RUNNABLE && proc_array[i].p_priority<=priority)
+                priority=proc_array[i].p_priority;
+        }
+        if(proc_array[pid].p_priority==priority){
+            if (proc_array[pid].p_run_count!=proc_array[pid].p_share) {
+                proc_array[pid].p_run_count++;
+                run(&proc_array[pid]);
+            }else{
+                proc_array[pid].p_run_count=0;
+            }
+        }
+        priority=0xFFFFFFFF;
         while (1) {
-            for (i=0; i<5; ++i) {
+            for (i=0; i<NPROCS; ++i) {
                 pid= (currentpid+i) % NPROCS;
                 if(proc_array[pid].p_state == P_RUNNABLE){
                     if (proc_array[pid].p_priority<=priority) {

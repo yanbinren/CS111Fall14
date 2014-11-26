@@ -46,6 +46,5 @@ Anything else you'd like us to know:
 
 Extra credit exercises: Exercise 7 & 8
 
-For exercise 7, I implemented a priority-based round-robin thread scheduling algorithm. To test with this new interesting scheduling algorithm, set the scheduling_algorithm in start(void) function in “schedos-kern.c” to 4. Literally, this scheduling algorithm maintains several virtual priority queues. Among the threads with the same priority, the algorithm uses round-robin to schedule these threads. 
-
+For exercise 7, I implemented a multi-level queue thread scheduling algorithm. To test with this new interesting scheduling algorithm, set the scheduling_algorithm in start(void) function in “schedos-kern.c” to 4. Literally, this scheduling algorithm maintains several virtual priority queues. Threads in higher-priority queue will run ahead of threads in lower-priority queue. Among the threads with the same priority, the algorithm uses round-robin to schedule these threads. Each thread runs for its pre-determined p_share time slots and then scheduled to next one.
 For exercise 8, I implemented another synchronization mechanism with atomic lock. To switch from different synchronization mechanisms, modify the macro definition SYNC_METHOD in “schedos-1.c”. When SYNC_METHOD == 1, it uses original synchronization mechanism; otherwise, it uses the synchronization mechanism implemented in Exercise 8.
