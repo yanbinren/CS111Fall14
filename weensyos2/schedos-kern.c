@@ -65,7 +65,7 @@ start(void)
 
 	// Set up hardware (schedos-x86.c)
 	segments_init();
-	interrupt_controller_init(1);
+	interrupt_controller_init(0);
 	console_clear();
     lock = 0;
 	// Initialize process descriptors as empty
@@ -92,7 +92,7 @@ start(void)
 		// Mark the process as runnable!
 		proc->p_state = P_RUNNABLE;
         proc_array[i].p_priority=0;
-        proc_array[i].p_share=1;
+        proc_array[i].p_share=-1;
         proc_array[i].p_run_count=0;
 	}
 
@@ -101,7 +101,7 @@ start(void)
 	cursorpos = (uint16_t *) 0xB8000;
 
 	// Initialize the scheduling algorithm.
-	scheduling_algorithm = 4;
+	scheduling_algorithm = 3;
 
 	// Switch to the first process.
 	run(&proc_array[1]);
@@ -247,6 +247,9 @@ schedule(void)
     if (scheduling_algorithm == 3){ //exercise 4B: proportional-share scheduling
         while (1) {
             if(proc_array[pid].p_state == P_RUNNABLE){
+                if(proc_array[pid].p_share==-1){
+                    run(&proc_array[pid]);
+                }
                 if (proc_array[pid].p_run_count!=proc_array[pid].p_share) {
                     proc_array[pid].p_run_count++;
                     run(&proc_array[pid]);
