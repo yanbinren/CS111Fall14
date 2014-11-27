@@ -101,7 +101,7 @@ start(void)
 	cursorpos = (uint16_t *) 0xB8000;
 
 	// Initialize the scheduling algorithm.
-	scheduling_algorithm = 3;
+	scheduling_algorithm = 4;
 
 	// Switch to the first process.
 	run(&proc_array[1]);
@@ -262,35 +262,25 @@ schedule(void)
     }
     if (scheduling_algorithm == 4){ //multi-level queue scheduling
         int i;
-        int currentpid=pid;
-        pid_t highest_priority_pid=0;
         unsigned int priority=0xFFFFFFFF;
-        for (i=0; i<NPROCS; ++i) {
-            if (proc_array[i].p_state == P_RUNNABLE && proc_array[i].p_priority<=priority)
-                priority=proc_array[i].p_priority;
-        }
-        if(proc_array[pid].p_priority==priority){
-            if (proc_array[pid].p_run_count!=proc_array[pid].p_share) {
-                proc_array[pid].p_run_count++;
-                run(&proc_array[pid]);
-            }else{
-                proc_array[pid].p_run_count=0;
-            }
-        }
-        priority=0xFFFFFFFF;
+        /**/
         while (1) {
-            for (i=0; i<NPROCS; ++i) {
-                pid= (currentpid+i) % NPROCS;
-                if(proc_array[pid].p_state == P_RUNNABLE){
-                    if (proc_array[pid].p_priority<=priority) {
-                        highest_priority_pid=pid;
-                        priority=proc_array[pid].p_priority;
-                    }
+            if(proc_array[pid].p_state == P_RUNNABLE && proc_array[pid].p_share==-1){
+                run(&proc_array[pid]);
+            }
+            for (i=1; i<NPROCS; ++i) {
+                if (proc_array[i].p_state == P_RUNNABLE && proc_array[i].p_priority<=priority)
+                    priority=proc_array[i].p_priority;
+            }
+            if(proc_array[pid].p_state == P_RUNNABLE && proc_array[pid].p_priority<=priority){
+                if (proc_array[pid].p_run_count!=proc_array[pid].p_share) {
+                    proc_array[pid].p_run_count++;
+                    run(&proc_array[pid]);
+                }else{
+                    proc_array[pid].p_run_count=0;
+                    pid=(pid+1)%NPROCS;
                 }
-            }
-            if (highest_priority_pid != 0) {
-                run (&proc_array[highest_priority_pid]);
-            }
+            }else pid=(pid+1)%NPROCS;
         }
     }
 
