@@ -1,0 +1,100 @@
+# Fill in your name, student ID, and email address in this file.
+# If you are working in a team, fill out the information for both team 
+# members.
+
+# SUBMIT THE LAB ONLY ONCE (from only one partner). This file will be
+# automatically parsed in order to give both team members credit for the
+# lab.
+
+# You need to fill in the EXERCISE sections describing your solutions
+# for Tasks 1, 2, and 3, as well as write the corresponding code.
+# If you did one or more extra credit problems, indicate which one in the
+# appropriate section below (remove the # sign first). If you have any other
+# information you'd like us to know, please add it at the end of the file.
+
+# Partner 1
+Name: Yanbin Ren
+Student ID: 004435008
+Email: yanbinren@cs.ucla.edu
+
+# Partner 2 (if you're working in a team)
+Name: Yijia Liu
+Student ID: 804414479
+Email: liuyijia@cs.ucla.edu
+
+# EXERCISE 1: What method you used to make your peer download and upload
+#    files in parallel?  (~1-3 sentences)
+
+One method we used to implement concurrent download/upload was to use fork() in main()
+function. When we have multiple download/upload tasks, the parent process will fork new
+processes for each task and child processes are running in parallel. First, this p2p
+software handles with download tasks in parallel and blocks upload tasks. After all the
+download tasks are finished, it begins to listen to other peer’s data requests and
+processes them in parallel.
+
+# EXERCISE 2A: What conditions did you find and fix that would have
+#    triggered a buffer overrun bug?  (~1-3 sentences each)
+
+-Filename Buffer Overflow:
+In function start_download(), it takes char* filename as a parameter passed in and
+copies characters into t->filename with strcpy() function. And this may cause buffer
+overflow if the length of filename is larger than FILENAMESIZ(256). To fix this 
+potential security black hole in the program, we should check the length of filename
+before copying it to t->filename. If it has more than 256 characters, we only copy
+the first 256 chars of the filename with strncpy(t->filename, filename, FILENAMESIZ).
+
+# EXERCISE 2B: What other robustness problems did you fix?  (~1-3 sentences
+#    each)
+
+-1. Prevent uploading files from other directories:
+In function task_upload(), check the length of filename and the directory of that file 
+before open to read. If the length of filename is longer than FILENAMESIZ, abort the task.
+Check the absolute path of the file with function realpath(). If the file is not in current
+working directory, go to exit and abort the task.
+
+-2. Prevent from receiving infinite data:
+Receiving infinite data may result in chewing up disk space. To prevent this, we set a limit
+(MAXFILESIZ=2^31) to the size of download file. In function task_download(), check the size 
+of download file each time when write from buffer. If total data written is larger than maximum
+file size, try to stop the task, warn the user with a message and try to download the file
+from other peers.
+
+-3. Data Integrity:
+We implement this part with MD5 digest. See it in EXTRA CREDIT PROBLEM.
+
+
+# EXERCISE 3: Describe the attacks you implemented for "evil mode".  Why
+#    are they attacks?  (~3-10 sentences each)
+
+-evil mode #1: buffer overflow attack:
+At first in task_download(), we try to overrun the filename buffer with a double-sized buffer.
+This may overwrite the program’s return address and it will also cause segmentation faults when
+peer tries to copy filename with strcpy.
+
+
+-evil mode #2: Infinite data stream attack:
+When a malicious peer tries to upload a file, it can switch the original file to ‘/dev/zero’ 
+which generate infinite ‘0’s. Thus, the malicious peer could send out unlimited data streams
+to other peers who are seeking for an ordinary file. It will fill up peers’ storage by trash
+data.
+
+
+-evil mode #3: Try to get file from outside of current working directory:
+When a peer sends out a GET request, it could just change the filename like “../file” or 
+“/etc/passwd” to get unshared data from other peers.
+But typically, this attack will not work if the peer checks the file path before upload. And
+usually, peers will not register files which are not in current working directory to the tracker,
+thus other peer cannot automatically track down these “safe” peers and set up connections.
+
+
+-evil mode #4: Denial of Service attack:
+In evil mode 4, the leecher sets up infinite socket connections with peers who have the file. It 
+attacks other peers by flooding file request without actually downloading that file. Similar to DoS
+attack in network. 
+
+
+# Extra credit problems
+#Extra credit problem: none
+We implement this part with MD5 digest.
+
+# Add any other information you'd like us to know below this line.
