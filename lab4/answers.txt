@@ -95,6 +95,10 @@ attack in network.
 
 # Extra credit problems
 #Extra credit problem: none
-We implement this part with MD5 digest.
+We implement this part with MD5 digest. When register local file to the tracker, we simply calculate
+MD5 digest of each file and send out a message like “MD5 filename checksum\n” to the tracker. When some
+peer successfully downloads the whole file, it automatically retrieve the checksum of the file from
+tracker, calculate the checksum of the file downloaded and compare the two checksums. If the two checksums
+are not equal, the file will be re-downloaded from next peer in the peer list.
 
 # Add any other information you'd like us to know below this line.
